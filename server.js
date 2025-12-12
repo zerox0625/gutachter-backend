@@ -6,30 +6,30 @@ const { createClient } = require('@supabase/supabase-js');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-console.log(`Server läuft auf Port ${PORT}`);
-
 app.use(cors());
 app.use(express.json());
 
-// Supabase Client
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_ANON_KEY
-);
+// Supabase
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_ANON_KEY;
 
-// Root-Route
+if (!supabaseUrl || !supabaseKey) {
+  console.error('❌ SUPABASE_URL und SUPABASE_ANON_KEY fehlen!');
+  process.exit(1);
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+// ROOT
 app.get('/', (req, res) => {
-  res.send('Gutachter-API läuft mit Supabase DB. Nutze /api/... Endpunkte.');
+  res.send('Gutachter-API läuft mit Supabase. /api/...');
 });
 
-// ============ AUTH ============
-
+// AUTH
 app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body;
-
-  if (!email || !password) {
-    return res.status(400).json({ error: 'Email und Passwort erforderlich' });
-  }
+  if (!email || !password)
+    return res.status(400).json({ error: 'Email/Passwort fehlt' });
 
   try {
     const { data: user, error } = await supabase
@@ -38,120 +38,108 @@ app.post('/api/auth/login', async (req, res) => {
       .eq('email', email)
       .single();
 
-    if (error || !user) {
-      return res.status(401).json({ error: 'Email oder Passwort falsch' });
-    }
+    if (error || !user)
+      return res.status(401).json({ error: 'Falsche Anmeldedaten' });
 
-    const isValid = await bcrypt.compare(password, user.password);
-    if (!isValid) {
-      return res.status(401).json({ error: 'Email oder Passwort falsch' });
-    }
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid)
+      return res.status(401).json({ error: 'Falsche Anmeldedaten' });
 
     res.json({
       user: {
         id: user.id,
         email: user.email,
         name: user.name,
-        role: user.role
-      }
+        role: user.role,
+      },
     });
-  } catch (error) {
+  } catch (e) {
     res.status(500).json({ error: 'Serverfehler' });
   }
 });
 
 app.post('/api/auth/register', async (req, res) => {
   const { name, email, password } = req.body;
-
-  if (!name || !email || !password) {
-    return res.status(400).json({ error: 'Alle Felder erforderlich' });
-  }
+  if (!name || !email || !password)
+    return res.status(400).json({ error: 'Alle Felder nötig' });
 
   try {
-    // Prüfe ob User existiert
-    const { data: existingUser } = await supabase
+    const { data: exists } = await supabase
       .from('users')
-      .select('email')
+      .select('id')
       .eq('email', email)
       .single();
 
-    if (existingUser) {
-      return res.status(400).json({ error: 'Email existiert bereits' });
-    }
+    if (exists)
+      return res.status(400).json({ error: 'Email existiert' });
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    const newUser = {
-      name,
-      email,
-      password: hashedPassword,
-      role: 'SACHBEARBEITER',
-      is_active: true
-    };
+    const hash = await bcrypt.hash(password, 10);
 
     const { data, error } = await supabase
       .from('users')
-      .insert([newUser])
+      .insert([
+        {
+          name,
+          email,
+          password: hash,
+          role: 'SACHBEARBEITER',
+          is_active: true,
+        },
+      ])
       .select()
       .single();
 
-    if (error) {
+    if (error)
       return res.status(400).json({ error: error.message });
-    }
 
-    res.json({ message: 'Registrierung erfolgreich' });
-  } catch (error) {
+    res.json({ message: 'Erfolgreich registriert', user: data });
+  } catch (e) {
     res.status(500).json({ error: 'Serverfehler' });
   }
 });
 
-// ============ USERS ============
-
+// USERS
 app.get('/api/users', async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('users')
-      .select('id, name, email, role, is_active');
+      .select('id,name,email,role,is_active');
 
     if (error) throw error;
-
     res.json(data);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
 });
 
 app.post('/api/users', async (req, res) => {
   const { email, password, name, role } = req.body;
-
-  if (!email || !password || !name) {
-    return res.status(400).json({ error: 'Alle Felder erforderlich' });
-  }
+  if (!email || !password || !name)
+    return res.status(400).json({ error: 'Felder fehlen' });
 
   try {
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    const newUser = {
-      name,
-      email,
-      password: hashedPassword,
-      role: role || 'SACHBEARBEITER',
-      is_active: true
-    };
+    const hash = await bcrypt.hash(password, 10);
 
     const { data, error } = await supabase
       .from('users')
-      .insert([newUser])
+      .insert([
+        {
+          name,
+          email,
+          password: hash,
+          role: role || 'SACHBEARBEITER',
+          is_active: true,
+        },
+      ])
       .select()
       .single();
 
-    if (error) {
+    if (error)
       return res.status(400).json({ error: error.message });
-    }
 
     res.json(data);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
 });
 
@@ -162,20 +150,69 @@ app.delete('/api/users/:id', async (req, res) => {
       .delete()
       .eq('id', req.params.id);
 
-    if (error) {
-      return res.status(404).json({ error: 'Benutzer nicht gefunden' });
-    }
+    // PGRST116 = "No rows found" bei Supabase/PostgREST
+    if (error && error.code !== 'PGRST116')
+      return res.status(404).json({ error: 'Nicht gefunden' });
 
     res.json({ message: 'Gelöscht' });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
 });
 
 app.put('/api/users/:id/role', async (req, res) => {
-  const userId = parseInt(req.params.id);
   const { role } = req.body;
+  if (!['SACHBEARBEITER', 'GUTACHTER', 'ADMIN'].includes(role))
+    return res.status(400).json({ error: 'Ungültige Rolle' });
 
-  const validRoles = ['SACHBEARBEITER', 'GUTACHTER', 'ADMIN'];
-  if (!validRoles.includes(role)) {
-    return res.status(400).json({ error
+  try {
+    const { data: user } = await supabase
+      .from('users')
+      .select('email')
+      .eq('id', req.params.id)
+      .single();
+
+    if (!user)
+      return res.status(404).json({ error: 'Nicht gefunden' });
+
+    // Optionaler Selbstschutz
+    if (
+      user.email === req.headers['x-user-email'] &&
+      role !== 'ADMIN'
+    ) {
+      return res.status(403).json({ error: 'Selbstschutz' });
+    }
+
+    const { data, error } = await supabase
+      .from('users')
+      .update({ role })
+      .eq('id', req.params.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json({ message: `Rolle: ${role}`, user: data });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// CASES (einfaches Beispiel)
+app.get('/api/cases', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('cases') // Tabellennamen ggf. anpassen
+      .select('*');
+
+    if (error) throw error;
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// SERVER START
+app.listen(PORT, () => {
+  console.log(`Server läuft auf Port ${PORT}`);
+});
