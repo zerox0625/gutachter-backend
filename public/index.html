@@ -789,15 +789,26 @@
         }
 
         function showApp() {
-            document.getElementById('loginPage').classList.add('hidden');
-            document.getElementById('registerPage').classList.add('hidden');
-            document.getElementById('mainApp').classList.remove('hidden');
-            
-            document.getElementById('userEmail').textContent = currentUser.email;
-            document.getElementById('userRole').textContent = 'Benutzer';
-            
-            loadDashboard();
-            showPage('dashboard');
+    document.getElementById('loginPage').classList.add('hidden');
+    document.getElementById('registerPage').classList.add('hidden');
+    document.getElementById('mainApp').classList.remove('hidden');
+
+    const role = currentUser.user_metadata?.role || 'USER';
+
+    document.getElementById('userEmail').textContent = currentUser.email;
+    document.getElementById('userRole').textContent = role;
+
+    // Admin sieht Benutzer-Seite
+    if (role === 'ADMIN') {
+        document.getElementById('usersLink').style.display = 'block';
+    } else {
+        document.getElementById('usersLink').style.display = 'none';
+    }
+
+    loadDashboard();
+    showPage('dashboard');
+}
+
         }
 
         function showPage(pageId) {
