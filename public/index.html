@@ -849,7 +849,8 @@
         }
 
         // ============ CASES ============
-        async function loadCases() {
+        
+     async function loadCases() {
             try {
                 const { data: cases, error } = await supabase
                     .from('cases')
@@ -873,6 +874,19 @@
             }
         }
 
+        async function loadAdminCases() {
+    const { data, error } = await supabase
+      .from('admin_cases')
+      .select('*');
+
+    if (error) {
+      console.error('Error loading admin_cases:', error);
+      return;
+    }
+
+    console.log('admin_cases:', data);
+    // hier dann Tabelle im DOM bauen usw.
+}
         async function saveCaseForm(event) {
             event.preventDefault();
             const description = document.getElementById('caseDescription').value;
@@ -945,28 +959,6 @@
         showAlert('error', 'Nur Admins können Benutzer sehen');
         return;
     }
-
-    try {
-        const { data: users, error } = await supabase
-            .from('auth.users')
-            .select('*');
-
-        if (error) throw error;
-
-        const tbody = document.getElementById('usersTable');
-        tbody.innerHTML = (users || []).map(u => `
-            <tr>
-                <td>${u.email}</td>
-                <td>Aktiv</td>
-                <td><button class="btn btn-danger btn-small" onclick="deleteUser('${u.id}')">Löschen</button></td>
-            </tr>
-        `).join('') || '<tr><td colspan="3" style="text-align: center; padding: 2rem;">Keine Benutzer</td></tr>';
-    } catch (e) {
-        console.error('Load users error:', e);
-    }
-}
-
-
         async function saveUserForm(event) {
             event.preventDefault();
             const email = document.getElementById('inputUserEmail').value;
