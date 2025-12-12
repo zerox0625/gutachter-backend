@@ -706,7 +706,7 @@
     <script>
         // ============ SUPABASE CONFIG ============
         const SUPABASE_URL = 'https://eqafsxinakprpyeeilsk.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxYWZzeGluYWtwcnB5ZWVpbHNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU1Mjk3NTksImV4cCI6MjA4MTEwNTc1OX0.gMLn7XCcWEi9n2vnyNrRDlP6qr0gvWOqpGF9C5aYXm8';
+        const SUPABASE_KEY = 'DEIN_ANON_KEY_HIER'; // anon-key, nicht den service key im Frontend lassen! [web:145][web:142]
         
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -789,39 +789,25 @@
         }
 
         function showApp() {
-    document.getElementById('loginPage').classList.add('hidden');
-    document.getElementById('registerPage').classList.add('hidden');
-    document.getElementById('mainApp').classList.remove('hidden');
+            document.getElementById('loginPage').classList.add('hidden');
+            document.getElementById('registerPage').classList.add('hidden');
+            document.getElementById('mainApp').classList.remove('hidden');
 
-    const role = currentUser.user_metadata?.role || 'USER';
+            const role = currentUser.user_metadata?.role || 'USER';
 
-    document.getElementById('userEmail').textContent = currentUser.email;
-    document.getElementById('userRole').textContent = role;
+            document.getElementById('userEmail').textContent = currentUser.email;
+            document.getElementById('userRole').textContent = role;
 
-    // Admin sieht Benutzer-Seite
-    if (role === 'ADMIN') {
-        document.getElementById('usersLink').style.display = 'block';
-    } else {
-        document.getElementById('usersLink').style.display = 'none';
-    }
+            // Admin sieht Benutzer-Seite
+            if (role === 'ADMIN') {
+                document.getElementById('usersLink').style.display = 'block';
+            } else {
+                document.getElementById('usersLink').style.display = 'none';
+            }
 
-    loadDashboard();
-    showPage('dashboard');
-}
-        // ============ INIT ============
-window.addEventListener('load', async () => {
-    const savedUser = localStorage.getItem('user');
-    if (savedUser) {
-        currentUser = JSON.parse(savedUser);
-        showApp();
-
-        // hier z.B. Admin-Fälle laden
-        if (currentUser.role === 'ADMIN') {      // angepasst an dein Feld
-            loadAdminCases();
+            loadDashboard();
+            showPage('dashboard');
         }
-    }
-});
-
 
         function showPage(pageId) {
             document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
@@ -863,8 +849,7 @@ window.addEventListener('load', async () => {
         }
 
         // ============ CASES ============
-        
-     async function loadCases() {
+        async function loadCases() {
             try {
                 const { data: cases, error } = await supabase
                     .from('cases')
@@ -889,18 +874,19 @@ window.addEventListener('load', async () => {
         }
 
         async function loadAdminCases() {
-    const { data, error } = await supabase
-      .from('admin_cases')
-      .select('*');
+            const { data, error } = await supabase
+                .from('admin_cases')
+                .select('*');
 
-    if (error) {
-      console.error('Error loading admin_cases:', error);
-      return;
-    }
+            if (error) {
+                console.error('Error loading admin_cases:', error);
+                return;
+            }
 
-    console.log('admin_cases:', data);
-    // hier dann Tabelle im DOM bauen usw.
-}
+            console.log('admin_cases:', data);
+            // hier später Tabelle für Admin-Fälle bauen
+        }
+
         async function saveCaseForm(event) {
             event.preventDefault();
             const description = document.getElementById('caseDescription').value;
@@ -967,12 +953,18 @@ window.addEventListener('load', async () => {
             });
         }
 
-     async function loadUsers() {
-    const role = currentUser.user_metadata?.role || 'USER';
-    if (role !== 'ADMIN') {
-        showAlert('error', 'Nur Admins können Benutzer sehen');
-        return;
-    }
+        // ============ USERS ============
+        async function loadUsers() {
+            const role = currentUser.user_metadata?.role || 'USER';
+            if (role !== 'ADMIN') {
+                showAlert('error', 'Nur Admins können Benutzer sehen');
+                return;
+            }
+
+            const tbody = document.getElementById('usersTable');
+            tbody.innerHTML = '<tr><td colspan="3" style="text-align:center;padding:2rem;">Benutzerverwaltung folgt</td></tr>';
+        }
+
         async function saveUserForm(event) {
             event.preventDefault();
             const email = document.getElementById('inputUserEmail').value;
@@ -1000,19 +992,17 @@ window.addEventListener('load', async () => {
 
         async function deleteUser(id) {
             if (!confirm('Wirklich löschen?')) return;
-            // Hinweis: Admin-Zugriff erforderlich für Benutzer löschen
             showAlert('error', 'Nur Admins können Benutzer löschen');
         }
 
         function openUserModal() {
-    const role = currentUser.user_metadata?.role || 'USER';
-    if (role !== 'ADMIN') {
-        showAlert('error', 'Nur Admins können Benutzer anlegen');
-        return;
-    }
-    document.getElementById('userModal').classList.add('active');
-}
-
+            const role = currentUser.user_metadata?.role || 'USER';
+            if (role !== 'ADMIN') {
+                showAlert('error', 'Nur Admins können Benutzer anlegen');
+                return;
+            }
+            document.getElementById('userModal').classList.add('active');
+        }
 
         function closeUserModal() {
             document.getElementById('userModal').classList.remove('active');
@@ -1033,6 +1023,11 @@ window.addEventListener('load', async () => {
             if (savedUser) {
                 currentUser = JSON.parse(savedUser);
                 showApp();
+
+                const role = currentUser.user_metadata?.role || 'USER';
+                if (role === 'ADMIN') {
+                    loadAdminCases();
+                }
             }
         });
 
