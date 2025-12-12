@@ -1,6 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcrypt');
 const cors = require('cors');
+const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -10,15 +11,16 @@ console.log(`Server läuft auf Port ${PORT}`);
 app.use(cors());
 app.use(express.json());
 
-// Root-Route für Render & Browser-Tests
-app.get('/', (req, res) => {
-  res.send('Gutachter-API läuft. Nutze /api/... Endpunkte.');
-});
+// Supabase Client
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_ANON_KEY
+);
 
-// In-Memory "Datenbank"
-let users = [];
-let cases = [];
-let clients = [];
+// Root-Route
+app.get('/', (req, res) => {
+  res.send('Gutachter-API läuft mit Supabase DB. Nutze /api/... Endpunkte.');
+});
 
 // ============ AUTH ============
 
@@ -29,24 +31,33 @@ app.post('/api/auth/login', async (req, res) => {
     return res.status(400).json({ error: 'Email und Passwort erforderlich' });
   }
 
-  const user = users.find(u => u.email === email);
-  if (!user) {
-    return res.status(401).json({ error: 'Email oder Passwort falsch' });
-  }
+  try {
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('email', email)
+      .single();
 
-  const isValid = await bcrypt.compare(password, user.password);
-  if (!isValid) {
-    return res.status(401).json({ error: 'Email oder Passwort falsch' });
-  }
-
-  res.json({
-    user: {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role
+    if (error || !user) {
+      return res.status(401).json({ error: 'Email oder Passwort falsch' });
     }
-  });
+
+    const isValid = await bcrypt.compare(password, user.password);
+    if (!isValid) {
+      return res.status(401).json({ error: 'Email oder Passwort falsch' });
+    }
+
+    res.json({
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Serverfehler' });
+  }
 });
 
 app.post('/api/auth/register', async (req, res) => {
@@ -56,37 +67,58 @@ app.post('/api/auth/register', async (req, res) => {
     return res.status(400).json({ error: 'Alle Felder erforderlich' });
   }
 
-  if (users.find(u => u.email === email)) {
-    return res.status(400).json({ error: 'Email existiert bereits' });
+  try {
+    // Prüfe ob User existiert
+    const { data: existingUser } = await supabase
+      .from('users')
+      .select('email')
+      .eq('email', email)
+      .single();
+
+    if (existingUser) {
+      return res.status(400).json({ error: 'Email existiert bereits' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const newUser = {
+      name,
+      email,
+      password: hashedPassword,
+      role: 'SACHBEARBEITER',
+      is_active: true
+    };
+
+    const { data, error } = await supabase
+      .from('users')
+      .insert([newUser])
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    res.json({ message: 'Registrierung erfolgreich' });
+  } catch (error) {
+    res.status(500).json({ error: 'Serverfehler' });
   }
-
-  const hashedPassword = await bcrypt.hash(password, 10);
-
-  const newUser = {
-    id: users.length + 1,
-    name,
-    email,
-    password: hashedPassword,
-    role: 'SACHBEARBEITER',
-    isActive: true
-  };
-
-  users.push(newUser);
-  res.json({ message: 'Registrierung erfolgreich' });
 });
 
-// ============ USERS (inkl. Rollen ändern) ============
+// ============ USERS ============
 
-app.get('/api/users', (req, res) => {
-  res.json(
-    users.map(u => ({
-      id: u.id,
-      email: u.email,
-      name: u.name,
-      role: u.role,
-      isActive: u.isActive
-    }))
-  );
+app.get('/api/users', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, name, email, role, is_active');
+
+    if (error) throw error;
+
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 app.post('/api/users', async (req, res) => {
@@ -96,162 +128,54 @@ app.post('/api/users', async (req, res) => {
     return res.status(400).json({ error: 'Alle Felder erforderlich' });
   }
 
-  if (users.find(u => u.email === email)) {
-    return res.status(400).json({ error: 'Email existiert bereits' });
+  try {
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const newUser = {
+      name,
+      email,
+      password: hashedPassword,
+      role: role || 'SACHBEARBEITER',
+      is_active: true
+    };
+
+    const { data, error } = await supabase
+      .from('users')
+      .insert([newUser])
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
-
-  const hashedPassword = await bcrypt.hash(password, 10);
-
-  const newUser = {
-    id: users.length + 1,
-    name,
-    email,
-    password: hashedPassword,
-    role: role || 'SACHBEARBEITER',
-    isActive: true
-  };
-
-  users.push(newUser);
-  res.json(newUser);
 });
 
-app.delete('/api/users/:id', (req, res) => {
-  const index = users.findIndex(u => u.id === parseInt(req.params.id));
-  if (index !== -1) {
-    users.splice(index, 1);
+app.delete('/api/users/:id', async (req, res) => {
+  try {
+    const { error } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', req.params.id);
+
+    if (error) {
+      return res.status(404).json({ error: 'Benutzer nicht gefunden' });
+    }
+
+    res.json({ message: 'Gelöscht' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
-  res.json({ message: 'Gelöscht' });
 });
 
-app.put('/api/users/:id/role', (req, res) => {
+app.put('/api/users/:id/role', async (req, res) => {
   const userId = parseInt(req.params.id);
   const { role } = req.body;
 
   const validRoles = ['SACHBEARBEITER', 'GUTACHTER', 'ADMIN'];
   if (!validRoles.includes(role)) {
-    return res.status(400).json({ error: 'Ungültige Rolle' });
-  }
-
-  const user = users.find(u => u.id === userId);
-  if (!user) {
-    return res.status(404).json({ error: 'Benutzer nicht gefunden' });
-  }
-
-  const currentUserEmail = req.headers['x-user-email'] || 'unknown';
-  if (user.email === currentUserEmail && role !== 'ADMIN') {
-    return res.status(403).json({ error: 'Admin kann sich selbst nicht degradieren' });
-  }
-
-  user.role = role;
-  res.json({
-    message: `Rolle geändert zu ${role}`,
-    user: { id: user.id, email: user.email, name: user.name, role: user.role }
-  });
-});
-
-// ============ CASES (Auftragsbogen) ============
-
-app.get('/api/cases', (req, res) => {
-  res.json(cases);
-});
-
-app.post('/api/cases', (req, res) => {
-  const {
-    description,
-    inspectorId,
-    clientId,
-    priority,
-    aktenzeichen,
-    auftragsdatum,
-    frist,
-    ort,
-    interneNotiz
-  } = req.body;
-
-  if (!description || !inspectorId) {
-    return res.status(400).json({ error: 'Beschreibung und Gutachter sind erforderlich' });
-  }
-
-  const newCase = {
-    id: cases.length + 1,
-    autoNr: `CASE-${String(cases.length + 1).padStart(5, '0')}`,
-    description,
-    inspectorId,
-    clientId,
-    priority: priority || 'MEDIUM',
-    status: 'OPEN',
-    inspectorName: users.find(u => u.id === parseInt(inspectorId))?.name || 'Unknown',
-    aktenzeichen: aktenzeichen || null,
-    auftragsdatum: auftragsdatum || new Date().toISOString().slice(0, 10),
-    frist: frist || null,
-    ort: ort || null,
-    interneNotiz: interneNotiz || null
-  };
-
-  cases.push(newCase);
-  res.json(newCase);
-});
-
-app.delete('/api/cases/:id', (req, res) => {
-  const index = cases.findIndex(c => c.id === parseInt(req.params.id));
-  if (index !== -1) {
-    cases.splice(index, 1);
-  }
-  res.json({ message: 'Gelöscht' });
-});
-
-// ============ CLIENTS (Auftraggeber) ============
-
-app.get('/api/clients', (req, res) => {
-  res.json(clients);
-});
-
-app.post('/api/clients', (req, res) => {
-  const { firma, ansprechpartner, email, telefon, adresse } = req.body;
-
-  if (!firma) {
-    return res.status(400).json({ error: 'Firma ist erforderlich' });
-  }
-
-  const newClient = {
-    id: clients.length + 1,
-    firma,
-    ansprechpartner: ansprechpartner || null,
-    email: email || null,
-    telefon: telefon || null,
-    adresse: adresse || null,
-    createdAt: new Date().toISOString()
-  };
-
-  clients.push(newClient);
-  res.json(newClient);
-});
-
-// ============ STATS ============
-
-app.get('/api/stats', (req, res) => {
-  res.json({
-    totalCases: cases.length,
-    pendingCases: cases.filter(c => c.status === 'OPEN').length,
-    completedCases: cases.filter(c => c.status === 'RELEASED').length,
-    activeUsers: users.filter(u => u.isActive).length
-  });
-});
-
-// ============ SERVER START ============
-
-app.listen(PORT, async () => {
-  const adminHash = await bcrypt.hash('TestPass123!', 10);
-  users = [
-    {
-      id: 1,
-      name: 'Admin User',
-      email: 'admin@example.com',
-      password: adminHash,
-      role: 'ADMIN',
-      isActive: true
-    }
-  ];
-
-  console.log(`🚀 Server läuft auf Port ${PORT}`);
-});
+    return res.status(400).json({ error
