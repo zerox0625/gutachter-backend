@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gutachter-App - Inspektionsverwaltung</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #2180B4;
+            --secondary: #5E5240;
+            --success: #00CC66;
+            --warning: #FF9900;
+            --danger: #FF5459;
+            --light: #F5F5F5;
+            --dark: #1F2121;
+            --text: #1F2121;
+            --border: #E0E0E0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--light);
+            color: var(--text);
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* LOGIN & REGISTER */
+        .login-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+        }
+
+        .login-box {
+            background: white;
+            padding: 3rem;
+            border-radius: 8px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .login-box h1 {
+            text-align: center;
+            margin-bottom: 2rem;
+            color: var(--primary);
+            font-size: 2rem;
+        }
+
+        .login-box p {
+            text-align: center;
+            color: #666;
+            margin-bottom: 2rem;
+            font-size: 0.95rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(33, 128, 180, 0.1);
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: all 0.3s;
+            display: inline-block;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            width: 100%;
+            margin-top: 0.5rem;
+        }
+
+        .btn-primary:hover {
+            background: #1a6892;
+        }
+
+        .btn-secondary {
+            background: var(--secondary);
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #4a4335;
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #e63a3f;
+        }
+
+        .btn-small {
+            padding: 0.5rem 1rem;
+            font-size: 0.9rem;
+            margin: 0 0.25rem;
+        }
+
+        .auth-link {
+            text-align: center;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .auth-link a {
+            color: var(--primary);
+            cursor: pointer;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .auth-link a:hover {
+            text-decoration: underline;
+        }
+
+        .alert {
+            padding: 1rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+            display: none;
+        }
+
+        .alert.active {
+            display: block;
+        }
+
+        .alert-success {
+            background: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #c8e6c9;
+        }
+
+        .alert-error {
+            background: #ffebee;
+            color: #c62828;
+            border: 1px solid #ffcdd2;
+        }
+
+        /* NAVBAR */
+        .navbar {
+            background: white;
+            border-bottom: 2px solid var(--border);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .navbar-brand {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        .navbar-menu {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+
+        .navbar-menu a {
+            text-decoration: none;
+            color: var(--text);
+            font-weight: 500;
+            cursor: pointer;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            transition: all 0.3s;
+        }
+
+        .navbar-menu a:hover,
+        .navbar-menu a.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        .navbar-auth {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .logout-btn {
+            background: var(--danger);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        .logout-btn:hover {
+            background: #e63a3f;
+        }
+
+        /* MAIN APP */
+        .main-container {
+            display: flex;
+            min-height: calc(100vh - 70px);
+        }
+
+        .content {
+            flex: 1;
+            padding: 2rem;
+            overflow-y: auto;
+        }
+
+        .page {
+            display: none;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .page-header h1 {
+            margin: 0;
+            color: var(--text);
+            font-size: 2rem;
+        }
+
+        /* DASHBOARD */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 2rem;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+        }
+
+        .card:hover {
+            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+            transform: translateY(-2px);
+        }
+
+        .card-title {
+            color: var(--text);
+            font-size: 0.9rem;
+            font-weight: 600;
+            opacity: 0.7;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+        }
+
+        .card-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .card-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        /* TABLE */
+        .table-container {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow-x: auto;
+            margin-top: 1rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            background: var(--light);
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            color: var(--text);
+            border-bottom: 2px solid var(--border);
+        }
+
+        td {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        tr:hover {
+            background: var(--light);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .badge-open {
+            background: #e3f2fd;
+            color: var(--primary);
+        }
+
+        .badge-in-review {
+            background: #fff3e0;
+            color: #e65100;
+        }
+
+        .badge-released {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        /* MODAL */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 8px;
+            padding: 2rem;
+            width: 90%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 1rem;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            color: var(--text);
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text);
+        }
+
+        .modal-footer {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+            margin-top: 2rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .search-box {
+            padding: 0.75rem 1rem;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            width: 250px;
+            font-size: 1rem;
+        }
+
+        .search-box:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: #666;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .mt-2 {
+            margin-top: 2rem;
+        }
+    </style>
+</head>
+<body>
+    <!-- LOGIN PAGE -->
+    <div id="loginPage" class="login-container">
+        <div class="login-box">
+            <h1>Gutachter-App</h1>
+            <p style="text-align: center; color: #666; margin-bottom: 2rem;">Inspektionsverwaltungssystem</p>
+            
+            <div id="loginError" class="alert alert-error"></div>
+            
+            <form onsubmit="handleLogin(event)">
+                <div class="form-group">
+                    <label for="loginEmail">E-Mail</label>
+                    <input type="email" id="loginEmail" required placeholder="ihre.email@example.com">
+                </div>
+                
+                <div class="form-group">
+                    <label for="loginPassword">Passwort</label>
+                    <input type="password" id="loginPassword" required placeholder="Passwort eingeben">
+                </div>
+                
+                <button type="submit" class="btn btn-primary">Anmelden</button>
+            </form>
+            
+            <div class="auth-link">
+                <p>Noch kein Konto? <a onclick="showRegisterPage()">Jetzt registrieren</a></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- REGISTER PAGE -->
+    <div id="registerPage" class="login-container hidden">
+        <div class="login-box">
+            <h1>Registrierung</h1>
+            <p style="text-align: center; color: #666; margin-bottom: 2rem;">Neues Konto erstellen</p>
+            
+            <div id="registerError" class="alert alert-error"></div>
+            
+            <form onsubmit="handleRegister(event)">
+                <div class="form-group">
+                    <label for="regEmail">E-Mail</label>
+                    <input type="email" id="regEmail" required placeholder="ihre.email@example.com">
+                </div>
+                
+                <div class="form-group">
+                    <label for="regPassword">Passwort</label>
+                    <input type="password" id="regPassword" required placeholder="Min. 6 Zeichen" minlength="6">
+                </div>
+                
+                <div class="form-group">
+                    <label for="regPasswordConfirm">Passwort wiederholen</label>
+                    <input type="password" id="regPasswordConfirm" required placeholder="Passwort bestätigen" minlength="6">
+                </div>
+                
+                <button type="submit" class="btn btn-primary">Registrieren</button>
+            </form>
+            
+            <div class="auth-link">
+                <p>Bereits registriert? <a onclick="showLoginPage()">Hier anmelden</a></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN APP -->
+    <div id="mainApp" class="hidden">
+        <!-- NAVBAR -->
+        <nav class="navbar">
+            <div class="navbar-brand">Gutachter-App</div>
+            <ul class="navbar-menu">
+                <li><a onclick="showPage('dashboard')" id="dashboardLink">Dashboard</a></li>
+                <li><a onclick="showPage('cases')" id="casesLink">Vorgänge</a></li>
+                <li><a onclick="showPage('users')" id="usersLink" style="display:none;">Benutzer</a></li>
+            </ul>
+            <div class="navbar-auth">
+                <div class="user-info">
+                    <span id="userEmail">user@example.com</span>
+                    <span id="userRole" style="background: var(--primary); color: white; padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.85rem; font-weight: 600;">USER</span>
+                </div>
+                <button class="logout-btn" onclick="handleLogout()">Abmelden</button>
+            </div>
+        </nav>
+
+        <!-- CONTENT AREA -->
+        <main class="content">
+            <div id="alert" class="alert"></div>
+
+            <!-- DASHBOARD PAGE -->
+            <div id="dashboardPage" class="page active">
+                <div class="page-header">
+                    <h1>Dashboard</h1>
+                </div>
+                
+                <div class="dashboard-grid">
+                    <div class="card">
+                        <div class="card-icon">📊</div>
+                        <div class="card-title">Vorgänge insgesamt</div>
+                        <div class="card-value" id="totalCases">0</div>
+                    </div>
+                </div>
+
+                <div class="card mt-2">
+                    <h3>Aktuelle Vorgänge</h3>
+                    <div class="table-container" style="margin-top: 1rem;">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Vorgangsnr.</th>
+                                    <th>Beschreibung</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recentCasesTable">
+                                <tr><td colspan="3" class="loading">Laden...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CASES PAGE -->
+            <div id="casesPage" class="page hidden">
+                <div class="page-header">
+                    <h1>Vorgänge</h1>
+                    <button class="btn btn-primary" onclick="openCaseModal()">Neuer Vorgang</button>
+                </div>
+
+                <div class="card">
+                    <div style="margin-bottom: 1.5rem;">
+                        <input type="text" class="search-box" id="caseSearch" placeholder="Nach Vorgangsnummer suchen..." onkeyup="filterCases()">
+                    </div>
+
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Vorgangsnr.</th>
+                                    <th>Beschreibung</th>
+                                    <th>Status</th>
+                                    <th>Aktionen</th>
+                                </tr>
+                            </thead>
+                            <tbody id="casesTable">
+                                <tr><td colspan="4" class="loading">Laden...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- USERS PAGE -->
+            <div id="usersPage" class="page hidden">
+                <div class="page-header">
+                    <h1>Benutzer</h1>
+                    <button class="btn btn-primary" onclick="openUserModal()">Benutzer hinzufügen</button>
+                </div>
+
+                <div class="card">
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>E-Mail</th>
+                                    <th>Status</th>
+                                    <th>Aktionen</th>
+                                </tr>
+                            </thead>
+                            <tbody id="usersTable">
+                                <tr><td colspan="3" class="loading">Laden...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- MODALS -->
+    <!-- Case Modal -->
+    <div id="caseModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Neuer Vorgang</h2>
+                <button class="close-btn" onclick="closeCaseModal()">×</button>
+            </div>
+            <form onsubmit="saveCaseForm(event)">
+                <div class="form-group">
+                    <label for="caseDescription">Beschreibung</label>
+                    <input type="text" id="caseDescription" required placeholder="z.B. IT-Inspektion Serverraum">
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeCaseModal()">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- User Modal -->
+    <div id="userModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Benutzer hinzufügen</h2>
+                <button class="close-btn" onclick="closeUserModal()">×</button>
+            </div>
+            <form id="userForm" onsubmit="saveUserForm(event)">
+                <div class="form-group">
+                    <label for="inputUserEmail">E-Mail</label>
+                    <input type="email" id="inputUserEmail" required placeholder="user@example.com">
+                </div>
+                
+                <div class="form-group">
+                    <label for="inputUserPassword">Passwort</label>
+                    <input type="password" id="inputUserPassword" required placeholder="Sicheres Passwort" minlength="6">
+                </div>
+                
+                <div class="form-group">
+                    <label for="inputUserRole">Rolle</label>
+                    <select id="inputUserRole">
+                        <option value="SACHBEARBEITER">Sachbearbeiter</option>
+                        <option value="GUTACHTER">Gutachter</option>
+                        <option value="ADMIN">Administrator</option>
+                    </select>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeUserModal()">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // ============ SUPABASE CONFIG ============
+        const SUPABASE_URL = 'https://eqafsxinakprpyeeilsk.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxYWZzeGluYWtwcnB5ZWVpbHNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU1Mjk3NTksImV4cCI6MjA4MTEwNTc1OX0.gMLn7XCcWEi9n2vnyNrRDlP6qr0gvWOqpGF9C5aYXm8';
+        
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // ============ STATE ============
+        let currentUser = null;
+        let allCases = [];
+
+        // ============ AUTH FUNCTIONS ============
+        async function handleLogin(event) {
+            event.preventDefault();
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+
+            try {
+                const { data, error } = await supabase.auth.signInWithPassword({
+                    email,
+                    password
+                });
+
+                if (error) {
+                    showAlert('error', error.message);
+                    return;
+                }
+
+                currentUser = data.user;
+                localStorage.setItem('user', JSON.stringify(currentUser));
+                showApp();
+            } catch (e) {
+                showAlert('error', 'Login fehlgeschlagen: ' + e.message);
+            }
+        }
+
+        async function handleRegister(event) {
+            event.preventDefault();
+            const email = document.getElementById('regEmail').value;
+            const password = document.getElementById('regPassword').value;
+            const passwordConfirm = document.getElementById('regPasswordConfirm').value;
+
+            if (password !== passwordConfirm) {
+                showAlert('error', 'Passwörter stimmen nicht überein');
+                return;
+            }
+
+            try {
+                const { data, error } = await supabase.auth.signUp({
+                    email,
+                    password
+                });
+
+                if (error) {
+                    showAlert('error', error.message);
+                    return;
+                }
+
+                showAlert('success', 'Registrierung erfolgreich! Bitte bestätigen Sie Ihre E-Mail.');
+                setTimeout(() => showLoginPage(), 2000);
+            } catch (e) {
+                showAlert('error', 'Registrierung fehlgeschlagen: ' + e.message);
+            }
+        }
+
+        function handleLogout() {
+            supabase.auth.signOut();
+            currentUser = null;
+            localStorage.removeItem('user');
+            location.reload();
+        }
+
+        // ============ UI FUNCTIONS ============
+        function showLoginPage() {
+            document.getElementById('registerPage').classList.add('hidden');
+            document.getElementById('loginPage').classList.remove('hidden');
+            document.getElementById('loginError').classList.remove('active');
+            document.getElementById('registerError').classList.remove('active');
+        }
+
+        function showRegisterPage() {
+            document.getElementById('loginPage').classList.add('hidden');
+            document.getElementById('registerPage').classList.remove('hidden');
+        }
+
+        function showApp() {
+            document.getElementById('loginPage').classList.add('hidden');
+            document.getElementById('registerPage').classList.add('hidden');
+            document.getElementById('mainApp').classList.remove('hidden');
+            
+            document.getElementById('userEmail').textContent = currentUser.email;
+            document.getElementById('userRole').textContent = 'Benutzer';
+            
+            loadDashboard();
+            showPage('dashboard');
+        }
+
+        function showPage(pageId) {
+            document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+            const page = document.getElementById(pageId + 'Page');
+            if (page) page.classList.add('active');
+
+            document.querySelectorAll('.navbar-menu a').forEach(link => link.classList.remove('active'));
+            document.getElementById(pageId + 'Link')?.classList.add('active');
+
+            if (pageId === 'cases') loadCases();
+            if (pageId === 'users') loadUsers();
+            if (pageId === 'dashboard') loadDashboard();
+        }
+
+        // ============ DASHBOARD ============
+        async function loadDashboard() {
+            try {
+                const { data: cases, error } = await supabase
+                    .from('cases')
+                    .select('*')
+                    .eq('user_id', currentUser.id);
+
+                if (error) throw error;
+
+                allCases = cases || [];
+                document.getElementById('totalCases').textContent = allCases.length;
+
+                const tbody = document.getElementById('recentCasesTable');
+                tbody.innerHTML = allCases.slice(0, 5).map(c => `
+                    <tr>
+                        <td>${c.id}</td>
+                        <td>${c.description || 'Keine Beschreibung'}</td>
+                        <td><span class="badge badge-open">${c.status || 'OPEN'}</span></td>
+                    </tr>
+                `).join('') || '<tr><td colspan="3" style="text-align: center; padding: 2rem;">Keine Vorgänge vorhanden</td></tr>';
+            } catch (e) {
+                console.error('Dashboard error:', e);
+            }
+        }
+
+        // ============ CASES ============
+        async function loadCases() {
+            try {
+                const { data: cases, error } = await supabase
+                    .from('cases')
+                    .select('*')
+                    .eq('user_id', currentUser.id);
+
+                if (error) throw error;
+
+                allCases = cases || [];
+                const tbody = document.getElementById('casesTable');
+                tbody.innerHTML = allCases.map(c => `
+                    <tr>
+                        <td>${c.id}</td>
+                        <td>${c.description || 'Keine Beschreibung'}</td>
+                        <td><span class="badge badge-open">${c.status || 'OPEN'}</span></td>
+                        <td><button class="btn btn-danger btn-small" onclick="deleteCase(${c.id})">Löschen</button></td>
+                    </tr>
+                `).join('') || '<tr><td colspan="4" style="text-align: center; padding: 2rem;">Keine Vorgänge vorhanden</td></tr>';
+            } catch (e) {
+                console.error('Load cases error:', e);
+            }
+        }
+
+        async function saveCaseForm(event) {
+            event.preventDefault();
+            const description = document.getElementById('caseDescription').value;
+
+            try {
+                const { data, error } = await supabase
+                    .from('cases')
+                    .insert([{
+                        description,
+                        user_id: currentUser.id,
+                        status: 'OPEN',
+                        created_at: new Date()
+                    }])
+                    .select()
+                    .single();
+
+                if (error) throw error;
+
+                showAlert('success', '✅ Vorgang erstellt');
+                closeCaseModal();
+                loadCases();
+                loadDashboard();
+            } catch (e) {
+                showAlert('error', 'Fehler: ' + e.message);
+            }
+        }
+
+        async function deleteCase(id) {
+            if (!confirm('Wirklich löschen?')) return;
+
+            try {
+                const { error } = await supabase
+                    .from('cases')
+                    .delete()
+                    .eq('id', id);
+
+                if (error) throw error;
+
+                showAlert('success', '✅ Vorgang gelöscht');
+                loadCases();
+                loadDashboard();
+            } catch (e) {
+                showAlert('error', 'Fehler: ' + e.message);
+            }
+        }
+
+        function openCaseModal() {
+            document.getElementById('caseModal').classList.add('active');
+        }
+
+        function closeCaseModal() {
+            document.getElementById('caseModal').classList.remove('active');
+            document.getElementById('caseDescription').value = '';
+        }
+
+        function filterCases() {
+            const search = document.getElementById('caseSearch').value.toLowerCase();
+            const rows = document.querySelectorAll('#casesTable tr');
+            rows.forEach(row => {
+                if (row.querySelector('td')) {
+                    const id = row.querySelector('td').textContent.toLowerCase();
+                    row.style.display = id.includes(search) ? '' : 'none';
+                }
+            });
+        }
+
+        // ============ USERS ============
+        async function loadUsers() {
+            try {
+                const { data: users, error } = await supabase
+                    .from('auth.users')
+                    .select('*');
+
+                if (error) throw error;
+
+                const tbody = document.getElementById('usersTable');
+                tbody.innerHTML = (users || []).map(u => `
+                    <tr>
+                        <td>${u.email}</td>
+                        <td>Aktiv</td>
+                        <td><button class="btn btn-danger btn-small" onclick="deleteUser('${u.id}')">Löschen</button></td>
+                    </tr>
+                `).join('') || '<tr><td colspan="3" style="text-align: center; padding: 2rem;">Keine Benutzer</td></tr>';
+            } catch (e) {
+                console.error('Load users error:', e);
+            }
+        }
+
+        async function saveUserForm(event) {
+            event.preventDefault();
+            const email = document.getElementById('inputUserEmail').value;
+            const password = document.getElementById('inputUserPassword').value;
+            const role = document.getElementById('inputUserRole').value;
+
+            try {
+                const { data, error } = await supabase.auth.signUp({
+                    email,
+                    password,
+                    options: {
+                        data: { role }
+                    }
+                });
+
+                if (error) throw error;
+
+                showAlert('success', '✅ Benutzer erstellt');
+                closeUserModal();
+                loadUsers();
+            } catch (e) {
+                showAlert('error', 'Fehler: ' + e.message);
+            }
+        }
+
+        async function deleteUser(id) {
+            if (!confirm('Wirklich löschen?')) return;
+            // Hinweis: Admin-Zugriff erforderlich für Benutzer löschen
+            showAlert('error', 'Nur Admins können Benutzer löschen');
+        }
+
+        function openUserModal() {
+            document.getElementById('userModal').classList.add('active');
+        }
+
+        function closeUserModal() {
+            document.getElementById('userModal').classList.remove('active');
+            document.getElementById('userForm').reset();
+        }
+
+        // ============ UTILITIES ============
+        function showAlert(type, message) {
+            const alertDiv = document.getElementById('alert');
+            alertDiv.className = 'alert alert-' + type + ' active';
+            alertDiv.textContent = message;
+            setTimeout(() => alertDiv.classList.remove('active'), 4000);
+        }
+
+        // ============ INIT ============
+        window.addEventListener('load', async () => {
+            const savedUser = localStorage.getItem('user');
+            if (savedUser) {
+                currentUser = JSON.parse(savedUser);
+                showApp();
+            }
+        });
+
+        // Close modals on outside click
+        window.addEventListener('click', (e) => {
+            if (e.target.id === 'caseModal') closeCaseModal();
+            if (e.target.id === 'userModal') closeUserModal();
+        });
+    </script>
+</body>
+</html>
