@@ -941,27 +941,33 @@
             });
         }
 
-        // ============ USERS ============
-        async function loadUsers() {
-            try {
-                const { data: users, error } = await supabase
-                    .from('auth.users')
-                    .select('*');
+     async function loadUsers() {
+    const role = currentUser.user_metadata?.role || 'USER';
+    if (role !== 'ADMIN') {
+        showAlert('error', 'Nur Admins können Benutzer sehen');
+        return;
+    }
 
-                if (error) throw error;
+    try {
+        const { data: users, error } = await supabase
+            .from('auth.users')
+            .select('*');
 
-                const tbody = document.getElementById('usersTable');
-                tbody.innerHTML = (users || []).map(u => `
-                    <tr>
-                        <td>${u.email}</td>
-                        <td>Aktiv</td>
-                        <td><button class="btn btn-danger btn-small" onclick="deleteUser('${u.id}')">Löschen</button></td>
-                    </tr>
-                `).join('') || '<tr><td colspan="3" style="text-align: center; padding: 2rem;">Keine Benutzer</td></tr>';
-            } catch (e) {
-                console.error('Load users error:', e);
-            }
-        }
+        if (error) throw error;
+
+        const tbody = document.getElementById('usersTable');
+        tbody.innerHTML = (users || []).map(u => `
+            <tr>
+                <td>${u.email}</td>
+                <td>Aktiv</td>
+                <td><button class="btn btn-danger btn-small" onclick="deleteUser('${u.id}')">Löschen</button></td>
+            </tr>
+        `).join('') || '<tr><td colspan="3" style="text-align: center; padding: 2rem;">Keine Benutzer</td></tr>';
+    } catch (e) {
+        console.error('Load users error:', e);
+    }
+}
+
 
         async function saveUserForm(event) {
             event.preventDefault();
@@ -995,7 +1001,14 @@
         }
 
         function openUserModal() {
-            document.getElementById('userModal').classList.add('active');
+    const role = currentUser.user_metadata?.role || 'USER';
+    if (role !== 'ADMIN') {
+        showAlert('error', 'Nur Admins können Benutzer anlegen');
+        return;
+    }
+    document.getElementById('userModal').classList.add('active');
+}
+
         }
 
         function closeUserModal() {
